@@ -1,4 +1,8 @@
-import { nextJsConfig } from "@workspace/eslint-config/next-js"
-
 /** @type {import("eslint").Linter.Config} */
-export default nextJsConfig
+const config = {
+  extends: ["next/core-web-vitals"],
+  rules: {
+    // Add any custom rules here
+  }
+}
+export default config

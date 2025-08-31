@@ -132,7 +132,7 @@ async function broadcastCandleUpdates() {
           await publisher.publish("candles-updates", JSON.stringify(candle));
         }
       } catch (error) {
-        console.error(`Error broadcastin ${symbol} ${timeframe}:`, error);
+        console.error(`Error broadcasting ${symbol} ${timeframe}:`, error);
       }
     }
   }
@@ -145,20 +145,39 @@ async function startCandleBroadcasting() {
 
 async function storeCandle(candle: any) {
   try {
+    // Determine the correct table name based on interval
+    let tableName: string;
+    switch (candle.interval) {
+      case 30:
+        tableName = "candles_30s";
+        break;
+      case 60:
+        tableName = "candles_1m";
+        break;
+      case 300:
+        tableName = "candles_5m";
+        break;
+      case 3600:
+        tableName = "candles_1h";
+        break;
+      default:
+        console.error(`Invalid interval: ${candle.interval}`);
+        return;
+    }
+
     await client.query(
-      `INSERT INTO CANDLE_TABLE (time, symbol, price, high, low, open, close)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO ${tableName} (bucket, symbol, open, high, low, close)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         new Date(candle.startTime),
         candle.symbol,
-        candle.close,
+        candle.open,
         candle.high,
         candle.low,
-        candle.open,
         candle.close,
       ]
     );
-    console.log(`Stored candle for ${candle.symbol} at ${candle.startTime}`);
+    console.log(`Stored candle for ${candle.symbol} at ${candle.startTime} in ${tableName}`);
   } catch (err) {
     console.error("Error storing candle:", err);
   }
@@ -181,4 +200,34 @@ async function broadcastLiveTrades(trade: any) {
   }
 }
 
+// Generate mock trade data for testing
+function generateMockTrades() {
+  const symbols = ["BTCUSDT", "XAUUSD", "EURUSD"];
+  const basePrices = {
+    "BTCUSDT": 110000,
+    "XAUUSD": 3400,
+    "EURUSD": 1.15
+  };
+
+  setInterval(() => {
+    symbols.forEach(symbol => {
+      const basePrice = basePrices[symbol as keyof typeof basePrices];
+      const volatility = basePrice * 0.001; // 0.1% volatility
+      const price = basePrice + (Math.random() - 0.5) * volatility;
+      
+      const mockTrade = {
+        symbol,
+        price: parseFloat(price.toFixed(5)),
+        quantity: Math.random() * 10,
+        timestamp: Date.now()
+      };
+
+      // Publish mock trade
+      publisher.publish("trades", JSON.stringify(mockTrade));
+    });
+  }, 1000); // Generate trades every second
+}
+
 startConsumer();
+// Start generating mock trades for testing
+generateMockTrades();

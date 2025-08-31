@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/auth-context";
-import { Button } from "@workspace/ui";
+import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
 export function AuthHeader() {

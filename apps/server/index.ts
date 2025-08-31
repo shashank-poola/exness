@@ -1,10 +1,14 @@
-import cors from "cors";
 import express from "express";
+import cors from "cors";
 import { createServer } from "http";
 import { createClient } from "redis";
 import { Server } from "socket.io";
+import dotenv from "dotenv";
 import authRoutes from "./routes/auth";
 import candleRoutes from "./routes/candles";
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 const server = createServer(app);
@@ -22,23 +26,40 @@ app.use(express.json());
 app.use("/api/candles", candleRoutes);
 app.use("/api/auth", authRoutes);
 
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "healthy", 
+    timestamp: new Date().toISOString(),
+    services: {
+      server: "running",
+      redis: subscriber.isReady ? "connected" : "disconnected",
+      database: "checking..."
+    }
+  });
+});
+
 async function setupRedis() {
-  await subscriber.connect();
-  console.log("Redis subscriber connected");
+  try {
+    await subscriber.connect();
+    console.log("Redis subscriber connected");
 
-  await subscriber.subscribe("candles-updates", (message) => {
-    console.log("Received candle update:", message);
-    const candleUpdate = JSON.parse(message);
-    const room = `candles-${candleUpdate.symbol}-${candleUpdate.timeframe}`;
-    console.log(`Emitting to room: ${room}`);
-    io.to(room).emit("candle-update", candleUpdate);
-  });
+    await subscriber.subscribe("candles-updates", (message) => {
+      console.log("Received candle update:", message);
+      const candleUpdate = JSON.parse(message);
+      const room = `candles-${candleUpdate.symbol}-${candleUpdate.timeframe}`;
+      console.log(`Emitting to room: ${room}`);
+      io.to(room).emit("candle-update", candleUpdate);
+    });
 
-  await subscriber.subscribe("live-trades", (message) => {
-    const trade = JSON.parse(message);
-    const room = `trades-${trade.symbol}`;
-    io.to(room).emit("live-trade", trade);
-  });
+    await subscriber.subscribe("live-trades", (message) => {
+      const trade = JSON.parse(message);
+      const room = `trades-${trade.symbol}`;
+      io.to(room).emit("live-trade", trade);
+    });
+  } catch (error) {
+    console.error("Redis connection failed:", error);
+  }
 }
 
 io.on("connection", (socket) => {
@@ -60,7 +81,7 @@ io.on("connection", (socket) => {
   });
 });
 
-app.get("/", (req, res) => {
+app.get("/", (req: express.Request, res: express.Response) => {
   res.send("Hello World");
 });
 

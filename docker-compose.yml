@@ -2,20 +2,46 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: timescale/timescaledb:latest-pg15
     container_name: exness_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: exness_trade
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+      # TimescaleDB specific optimizations
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+      # Performance tuning
+      # Memory settings for better performance
+      POSTGRES_MAX_CONNECTIONS: "200"
+      POSTGRES_SHARED_BUFFERS: "256MB"
+      POSTGRES_EFFECTIVE_CACHE_SIZE: "1GB"
+      POSTGRES_MAINTENANCE_WORK_MEM: "64MB"
+      POSTGRES_CHECKPOINT_COMPLETION_TARGET: "0.9"
+      POSTGRES_WAL_BUFFERS: "16MB"
+      POSTGRES_DEFAULT_STATISTICS_TARGET: "100"
+      POSTGRES_RANDOM_PAGE_COST: "1.1"
+      POSTGRES_EFFECTIVE_IO_CONCURRENCY: "200"
+      POSTGRES_WORK_MEM: "4MB"
+      POSTGRES_MIN_WAL_SIZE: "1GB"
+      POSTGRES_MAX_WAL_SIZE: "4GB"
+      # Force TimescaleDB to be loaded
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/Pooler/db/migrations:/docker-entrypoint-initdb.d
+      # Add a backup volume for data safety
+      - ./backups:/backups
     networks:
       - exness_network
+    # Health check for TimescaleDB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d exness_trade"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   redis:
     image: redis:7-alpine

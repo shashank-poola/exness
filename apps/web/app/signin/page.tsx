@@ -1,20 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { Button, cn } from "@workspace/ui";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 export default function SignInPage() {
-  const { signin } = useAuth();
-  const router = useRouter();
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const { signin } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,135 +21,111 @@ export default function SignInPage() {
     setError("");
 
     try {
-      await signin(formData.email, formData.password);
-      // Redirect to trading dashboard
-      router.push("/");
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      await signin(email, password);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Sign in failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-card border border-border rounded-lg shadow-lg p-8">
-          <div className="text-center mb-8">
-            <div className="w-12 h-12 bg-primary rounded-lg mx-auto mb-4 flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-primary-foreground"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">Welcome Back</h1>
-            <p className="text-muted-foreground mt-2">
-              Sign in to your trading account
-            </p>
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-[#0a0a0a]">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-purple-900/20"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+      </div>
+
+      {/* Back to Home */}
+      <Link 
+        href="/" 
+        className="absolute top-6 left-6 text-gray-400 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        <span>Back to Home</span>
+      </Link>
+
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
           </div>
+          <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
+          <p className="text-gray-400 mt-2">Sign in to your trading account</p>
+        </div>
 
-          {error && (
-            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Sign In Form */}
+        <div className="bg-[#1a1d23] border border-[#2a2d35] rounded-2xl p-8 shadow-2xl">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Field */}
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Email
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                Email Address
               </label>
               <input
                 id="email"
-                name="email"
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
-                value={formData.email}
-                onChange={handleInputChange}
                 className={cn(
-                  "w-full px-3 py-2 border border-input rounded-md",
-                  "bg-background text-foreground",
-                  "focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent",
-                  "placeholder:text-muted-foreground",
-                  "transition-colors duration-200"
+                  "w-full px-4 py-3 bg-[#2a2d35] border border-[#3a3d45] rounded-lg text-white placeholder-gray-400",
+                  "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                  "transition-all duration-200"
                 )}
                 placeholder="Enter your email"
               />
             </div>
 
+            {/* Password Field */}
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
               <input
                 id="password"
-                name="password"
                 type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
-                value={formData.password}
-                onChange={handleInputChange}
                 className={cn(
-                  "w-full px-3 py-2 border border-input rounded-md",
-                  "bg-background text-foreground",
-                  "focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent",
-                  "placeholder:text-muted-foreground",
-                  "transition-colors duration-200"
+                  "w-full px-4 py-3 bg-[#2a2d35] border border-[#3a3d45] rounded-lg text-white placeholder-gray-400",
+                  "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                  "transition-all duration-200"
                 )}
                 placeholder="Enter your password"
               />
             </div>
 
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Submit Button */}
             <Button
               type="submit"
-              className="w-full"
               disabled={isLoading}
-              size="lg"
+              className={cn(
+                "w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg",
+                "hover:from-blue-600 hover:to-purple-700 transition-all duration-200",
+                "font-semibold text-lg shadow-lg hover:shadow-xl",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
             >
               {isLoading ? (
-                <div className="flex items-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Signing in...
+                <div className="flex items-center space-x-2">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Signing In...</span>
                 </div>
               ) : (
                 "Sign In"
@@ -158,24 +133,32 @@ export default function SignInPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
+          {/* Divider */}
+          <div className="my-6 flex items-center">
+            <div className="flex-1 border-t border-[#3a3d45]"></div>
+            <span className="px-4 text-sm text-gray-400">or</span>
+            <div className="flex-1 border-t border-[#3a3d45]"></div>
+          </div>
+
+          {/* Sign Up Link */}
+          <div className="text-center">
+            <p className="text-gray-400">
               Don't have an account?{" "}
-              <Link
-                href="/register"
-                className="text-primary hover:text-primary/90 font-medium transition-colors"
+              <Link 
+                href="/register" 
+                className="text-blue-400 hover:text-blue-300 font-medium transition-colors duration-200"
               >
-                Sign up
+                Create one now
               </Link>
             </p>
           </div>
+        </div>
 
-          <div className="mt-8 pt-6 border-t border-border">
-            <div className="text-xs text-muted-foreground text-center space-y-1">
-              <p>🔒 Your data is secure and encrypted</p>
-              <p>💰 Start with $100,000 demo balance</p>
-            </div>
-          </div>
+        {/* Demo Account Info */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Demo accounts come with $100,000 virtual balance
+          </p>
         </div>
       </div>
     </div>

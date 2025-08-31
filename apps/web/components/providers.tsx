@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthProvider } from "@/contexts/auth-context";
+import { WebSocketProvider } from "@/contexts/websocket-context";
 import {
   ThemeProvider as NextThemesProvider,
   type ThemeProviderProps,
@@ -26,7 +27,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <WebSocketProvider>
+          {children}
+        </WebSocketProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

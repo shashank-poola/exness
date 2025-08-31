@@ -2,7 +2,7 @@
 
 import { Settings, TrendingDown, TrendingUp } from "lucide-react";
 import { useState, useEffect } from "react";
-import { io } from "socket.io-client";
+import { useWebSocket } from "@/contexts/websocket-context";
 
 interface TradingPanelProps {
   symbol: string;
@@ -25,35 +25,21 @@ export function TradingPanel({ symbol }: TradingPanelProps) {
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
-  const [currentPrice, setCurrentPrice] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [positions, setPositions] = useState<Trade[]>([]);
-  const [socket, setSocket] = useState<any>(null);
+  const { liveTrades } = useWebSocket();
 
-  useEffect(() => {
-    // Connect to WebSocket for real-time price updates
-    const newSocket = io("http://localhost:3001");
-    setSocket(newSocket);
+  // Get latest price for the selected symbol
+  const latestTrade = liveTrades
+    .filter(trade => trade.symbol === symbol)
+    .sort((a, b) => b.timestamp - a.timestamp)[0];
 
-    newSocket.on("connect", () => {
-      console.log("Connected to trading server");
-      newSocket.emit("subscribe-trades", { symbol });
-    });
-
-    newSocket.on("live-trade", (trade: any) => {
-      if (trade.symbol === symbol) {
-        setCurrentPrice(trade.price);
-      }
-    });
-
-    return () => {
-      newSocket.disconnect();
-    };
-  }, [symbol]);
-
-  // Mock data for display
-  const mockPrice = currentPrice || (symbol === "BTCUSDT" ? 110911.02 : symbol === "XAUUSD" ? 3384.518 : 1.15916);
-  const spread = symbol === "BTCUSDT" ? 21.60 : 0.002;
+  const currentPrice = latestTrade?.price || 0;
+  
+  // Calculate bid/ask prices with spread
+  const spread = symbol === "BTCUSDT" ? 21.60 : symbol === "ETHUSDT" ? 2.14 : 0.22;
+  const bidPrice = currentPrice - (spread / 2);
+  const askPrice = currentPrice + (spread / 2);
 
   const handleTrade = async (type: "buy" | "sell") => {
     if (!volume || parseFloat(volume) <= 0) {
@@ -67,7 +53,7 @@ export function TradingPanel({ symbol }: TradingPanelProps) {
         symbol,
         type,
         volume: parseFloat(volume),
-        price: mockPrice,
+        price: type === "buy" ? askPrice : bidPrice,
         stopLoss: stopLoss ? parseFloat(stopLoss) : undefined,
         takeProfit: takeProfit ? parseFloat(takeProfit) : undefined,
       };
@@ -134,15 +120,15 @@ export function TradingPanel({ symbol }: TradingPanelProps) {
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-400">Sell</span>
-            <span className="text-lg font-mono text-red-400">{mockPrice.toLocaleString()}</span>
+            <span className="text-lg font-mono text-red-400">{bidPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-400">Buy</span>
             <span className="text-lg font-mono text-green-400">
-              {mockPrice.toLocaleString()}
+              {askPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
             </span>
           </div>
-          <div className="text-xs text-gray-500">Spread: {spread} USD</div>
+          <div className="text-xs text-gray-500">Spread: {spread.toFixed(2)} USD</div>
         </div>
       </div>
 

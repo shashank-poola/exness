@@ -7,7 +7,7 @@ import {
   type Time,
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
-import { io } from "socket.io-client";
+import { useWebSocket } from "@/contexts/websocket-context";
 
 type TF = "30s" | "1m" | "5m" | "1h";
 
@@ -29,16 +29,20 @@ export default function Candles({
   const ref = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<any>(null);
-  const socketRef = useRef<any>(null);
   const candlesRef = useRef<CandlestickData[]>([]);
   const liveCandle = useRef<CandlestickData | null>(null);
+  const { candles, liveTrades } = useWebSocket();
 
   useEffect(() => {
     if (!ref.current) return;
+    
     const chart = createChart(ref.current, {
       width: ref.current.clientWidth,
-      height: 400,
-      layout: { background: { color: "#0b0e11" }, textColor: "#d1d4dc" },
+      height: ref.current.clientHeight || 400,
+      layout: { 
+        background: { color: "#0b0e11" }, 
+        textColor: "#d1d4dc" 
+      },
       grid: {
         vertLines: { color: "#1f2a35" },
         horzLines: { color: "#1f2a35" },
@@ -48,10 +52,46 @@ export default function Candles({
         fixLeftEdge: false,
         fixRightEdge: false,
         borderVisible: false,
+        timeVisible: true,
+        secondsVisible: false,
       },
-      crosshair: { mode: 0 },
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      },
+      crosshair: { 
+        mode: 1,
+        vertLine: {
+          color: "#2962FF",
+          width: 1,
+          style: 3,
+          labelBackgroundColor: "#2962FF",
+        },
+        horzLine: {
+          color: "#2962FF",
+          width: 1,
+          style: 3,
+          labelBackgroundColor: "#2962FF",
+        },
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true,
+      },
     });
+    
     chartRef.current = chart;
+    
     const series = chart.addSeries(CandlestickSeries, {
       upColor: "#26a69a",
       downColor: "#ef5350",
@@ -64,123 +104,163 @@ export default function Candles({
     seriesRef.current = series;
 
     const loadInitialData = async () => {
-      const res = await fetch(
-        `http://localhost:3001/api/candles/${symbol}/${timeframe}`,
-        { cache: "no-store" }
+      try {
+        const res = await fetch(
+          `http://localhost:3001/api/candles/${symbol}/${timeframe}`,
+          { cache: "no-store" }
+        );
+        
+        if (res.ok) {
+          const json = await res.json();
+          const data: CandlestickData[] = json.candles.map((c: any) => ({
+            time: Math.floor(Number(c.time) / 1000) as Time,
+            open: Number(c.open),
+            high: Number(c.high),
+            low: Number(c.low),
+            close: Number(c.close),
+          }));
+
+          candlesRef.current = data;
+          series.setData(data);
+          chart.timeScale().fitContent();
+        }
+      } catch (error) {
+        console.error("Error loading initial data:", error);
+        // Set some mock data if API fails
+        const mockData: CandlestickData[] = [];
+        const now = Math.floor(Date.now() / 1000);
+        let basePrice = symbol === "BTCUSDT" ? 108000 : symbol === "ETHUSDT" ? 3400 : 98;
+        
+        for (let i = 0; i < 100; i++) {
+          const time = (now - (100 - i) * 60) as Time;
+          const open = basePrice + (Math.random() - 0.5) * 1000;
+          const high = open + Math.random() * 500;
+          const low = open - Math.random() * 500;
+          const close = open + (Math.random() - 0.5) * 200;
+          
+          mockData.push({ time, open, high, low, close });
+          basePrice = close;
+        }
+        
+        candlesRef.current = mockData;
+        series.setData(mockData);
+        chart.timeScale().fitContent();
+      }
+    };
+
+    loadInitialData();
+
+    const onResize = () => {
+      if (ref.current) {
+        chart.applyOptions({ 
+          width: ref.current.clientWidth,
+          height: ref.current.clientHeight || 400
+        });
+      }
+    };
+    
+    window.addEventListener("resize", onResize);
+    
+    return () => {
+      window.removeEventListener("resize", onResize);
+      chart.remove();
+    };
+  }, [symbol, timeframe]);
+
+  // Update chart with real-time data from WebSocket context
+  useEffect(() => {
+    if (!seriesRef.current || !chartRef.current) return;
+
+    const symbolCandles = candles.filter(
+      c => c.symbol === symbol && c.timeframe === timeframe
+    );
+
+    if (symbolCandles.length > 0) {
+      const latestCandle = symbolCandles[symbolCandles.length - 1];
+      const candleData: CandlestickData = {
+        time: Math.floor(Number(latestCandle.time) / 1000) as Time,
+        open: latestCandle.open,
+        high: latestCandle.high,
+        low: latestCandle.low,
+        close: latestCandle.close,
+      };
+
+      // Update or add the candle
+      const existingIndex = candlesRef.current.findIndex(
+        c => c.time === candleData.time
       );
-      const json = await res.json();
-      const data: CandlestickData[] = json.candles.map((c: any) => ({
-        time: Math.floor(Number(c.time) / 1000) as Time,
-        open: Number(c.open),
-        high: Number(c.high),
-        low: Number(c.low),
-        close: Number(c.close),
-      }));
-
-      candlesRef.current = data;
-      series.setData(data);
-      chart.timeScale().fitContent();
-    };
-
-    const setupWebSocket = () => {
-      socketRef.current = io("http://localhost:3001");
-      socketRef.current.on("connect", () => {
-        console.log("Connected to server");
-        socketRef.current.emit("subscribe-candles", { symbol, timeframe });
-        socketRef.current.emit("subscribe-trades", { symbol });
-      });
-
-      socketRef.current.on("candle-update", (candleUpdate: any) => {
-        if (
-          candleUpdate.symbol === symbol &&
-          candleUpdate.timeframe === timeframe
-        ) {
-          const newCandle: CandlestickData = {
-            time: Math.floor(Number(candleUpdate.time) / 1000) as Time,
-            open: Number(candleUpdate.open),
-            high: Number(candleUpdate.high),
-            low: Number(candleUpdate.low),
-            close: Number(candleUpdate.close),
-          };
-
-          // Update historical data
-          const existingIndex = candlesRef.current.findIndex(
-            (c) => c.time === newCandle.time
-          );
-          if (existingIndex >= 0) {
-            candlesRef.current[existingIndex] = newCandle;
-          } else {
-            candlesRef.current.push(newCandle);
-            candlesRef.current = candlesRef.current.slice(-100);
-          }
-
-          updateChart();
+      
+      if (existingIndex >= 0) {
+        candlesRef.current[existingIndex] = candleData;
+      } else {
+        candlesRef.current.push(candleData);
+        // Keep only last 200 candles
+        if (candlesRef.current.length > 200) {
+          candlesRef.current = candlesRef.current.slice(-200);
         }
-      });
+      }
 
-      socketRef.current.on("live-trade", (trade: any) => {
-        if (trade.symbol === symbol) {
-          updateLiveCandle(trade);
-        }
-      });
-    };
+      seriesRef.current.setData(candlesRef.current);
+      chartRef.current.timeScale().scrollToRealTime();
+    }
+  }, [candles, symbol, timeframe]);
 
-    const updateLiveCandle = (trade: any) => {
-      const currentTime = getTimeBucket(trade.timestamp, timeframe);
+  // Update live candle with real-time trades
+  useEffect(() => {
+    if (!seriesRef.current || !chartRef.current) return;
+
+    const symbolTrades = liveTrades.filter(t => t.symbol === symbol);
+    
+    if (symbolTrades.length > 0) {
+      const latestTrade = symbolTrades[symbolTrades.length - 1];
+      const currentTime = getTimeBucket(latestTrade.timestamp, timeframe);
       const candleTime = Math.floor(currentTime / 1000) as Time;
 
       if (!liveCandle.current || liveCandle.current.time !== candleTime) {
         liveCandle.current = {
           time: candleTime,
-          open: trade.price,
-          high: trade.price,
-          low: trade.price,
-          close: trade.price,
+          open: latestTrade.price,
+          high: latestTrade.price,
+          low: latestTrade.price,
+          close: latestTrade.price,
         };
       } else {
         liveCandle.current.high = Math.max(
           liveCandle.current.high,
-          trade.price
+          latestTrade.price
         );
-        liveCandle.current.low = Math.min(liveCandle.current.low, trade.price);
-        liveCandle.current.close = trade.price;
+        liveCandle.current.low = Math.min(
+          liveCandle.current.low, 
+          latestTrade.price
+        );
+        liveCandle.current.close = latestTrade.price;
       }
 
-      updateChart();
-    };
-
-    const updateChart = () => {
+      // Update chart with live data
       let allData = [...candlesRef.current];
-
-      if (liveCandle.current) {
-        const lastIndex = allData.findIndex(
-          (c) => c.time === liveCandle.current!.time
-        );
-        if (lastIndex >= 0) {
-          allData[lastIndex] = liveCandle.current;
-        } else {
-          allData.push(liveCandle.current);
-        }
+      const lastIndex = allData.findIndex(
+        c => c.time === liveCandle.current!.time
+      );
+      
+      if (lastIndex >= 0) {
+        allData[lastIndex] = liveCandle.current;
+      } else {
+        allData.push(liveCandle.current);
       }
 
       seriesRef.current.setData(allData);
-      chart.timeScale().scrollToRealTime();
-    };
+      chartRef.current.timeScale().scrollToRealTime();
+    }
+  }, [liveTrades, symbol, timeframe]);
 
-    loadInitialData();
-    setupWebSocket();
-
-    const onResize = () =>
-      chart.applyOptions({ width: ref.current!.clientWidth });
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-      chart.remove();
-    };
-  }, [symbol, timeframe]);
-
-  return <div ref={ref} style={{ width: "100%", height: 400 }} />;
+  return (
+    <div 
+      ref={ref} 
+      style={{ 
+        width: "100%", 
+        height: "100%",
+        minHeight: "400px"
+      }} 
+    />
+  );
 }

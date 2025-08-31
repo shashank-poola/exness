@@ -7,14 +7,16 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useWebSocket } from "@/contexts/websocket-context";
 
 interface Instrument {
   symbol: string;
   name: string;
-  price: string;
-  change: string;
-  changePercent: string;
+  bid: number;
+  ask: number;
+  change: number;
+  changePercent: number;
   trending: "up" | "down";
 }
 
@@ -22,66 +24,29 @@ const INSTRUMENTS: Instrument[] = [
   {
     symbol: "BTCUSDT",
     name: "Bitcoin",
-    price: "110,889.42",
-    change: "+144.46",
-    changePercent: "+0.13%",
+    bid: 108738.92,
+    ask: 108760.52,
+    change: 144.46,
+    changePercent: 0.13,
     trending: "up",
   },
   {
-    symbol: "XAUUSD",
-    name: "Gold",
-    price: "3,384.518",
-    change: "-0.104",
-    changePercent: "-0.00%",
+    symbol: "ETHUSDT",
+    name: "Ethereum",
+    bid: 3456.78,
+    ask: 3458.92,
+    change: -23.45,
+    changePercent: -0.67,
     trending: "down",
   },
   {
-    symbol: "AAPL",
-    name: "Apple Inc",
-    price: "228.29",
-    change: "+2.15",
-    changePercent: "+0.95%",
+    symbol: "SOLUSDT",
+    name: "Solana",
+    bid: 98.45,
+    ask: 98.67,
+    change: 2.34,
+    changePercent: 2.44,
     trending: "up",
-  },
-  {
-    symbol: "EURUSD",
-    name: "Euro/USD",
-    price: "1.15916",
-    change: "-0.0012",
-    changePercent: "-0.10%",
-    trending: "down",
-  },
-  {
-    symbol: "GBPUSD",
-    name: "Pound/USD",
-    price: "1.34455",
-    change: "+0.0023",
-    changePercent: "+0.17%",
-    trending: "up",
-  },
-  {
-    symbol: "USDJPY",
-    name: "USD/Yen",
-    price: "147.905",
-    change: "+0.125",
-    changePercent: "+0.08%",
-    trending: "up",
-  },
-  {
-    symbol: "USTEC",
-    name: "US Tech 100",
-    price: "23,545.00",
-    change: "+125.50",
-    changePercent: "+0.54%",
-    trending: "up",
-  },
-  {
-    symbol: "USOIL",
-    name: "US Oil",
-    price: "62.823",
-    change: "-1.177",
-    changePercent: "-1.84%",
-    trending: "down",
   },
 ];
 
@@ -100,8 +65,50 @@ export function InstrumentsSidebar({
 }: InstrumentsSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("favorites");
+  const [instruments, setInstruments] = useState<Instrument[]>(INSTRUMENTS);
+  const { liveTrades, subscribeToSymbol, unsubscribeFromSymbol } = useWebSocket();
 
-  const filteredInstruments = INSTRUMENTS.filter(
+  // Subscribe to live data for all instruments
+  useEffect(() => {
+    INSTRUMENTS.forEach(instrument => {
+      subscribeToSymbol(instrument.symbol);
+    });
+
+    return () => {
+      INSTRUMENTS.forEach(instrument => {
+        unsubscribeFromSymbol(instrument.symbol);
+      });
+    };
+  }, [subscribeToSymbol, unsubscribeFromSymbol]);
+
+  // Update instrument prices from live trades
+  useEffect(() => {
+    if (liveTrades.length > 0) {
+      setInstruments(prev => prev.map(instrument => {
+        const latestTrade = liveTrades
+          .filter(trade => trade.symbol === instrument.symbol)
+          .sort((a, b) => b.timestamp - a.timestamp)[0];
+        
+        if (latestTrade) {
+          const spread = instrument.ask - instrument.bid;
+          const newBid = latestTrade.price - (spread / 2);
+          const newAsk = latestTrade.price + (spread / 2);
+          
+          return {
+            ...instrument,
+            bid: newBid,
+            ask: newAsk,
+            change: latestTrade.price - (instrument.bid + instrument.ask) / 2,
+            changePercent: ((latestTrade.price - (instrument.bid + instrument.ask) / 2) / (instrument.bid + instrument.ask) / 2) * 100,
+            trending: latestTrade.price > (instrument.bid + instrument.ask) / 2 ? "up" : "down"
+          };
+        }
+        return instrument;
+      }));
+    }
+  }, [liveTrades]);
+
+  const filteredInstruments = instruments.filter(
     (instrument) =>
       instrument.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
       instrument.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -198,19 +205,11 @@ export function InstrumentsSidebar({
                   <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-xs font-bold">
                     {instrument.symbol.includes("BTC")
                       ? "₿"
-                      : instrument.symbol.includes("XAU")
-                        ? "🥇"
-                        : instrument.symbol.includes("AAPL")
-                          ? "🍎"
-                          : instrument.symbol.includes("EUR")
-                            ? "€"
-                            : instrument.symbol.includes("GBP")
-                              ? "£"
-                              : instrument.symbol.includes("JPY")
-                                ? "¥"
-                                : instrument.symbol.includes("TEC")
-                                  ? "📈"
-                                  : "🛢️"}
+                      : instrument.symbol.includes("ETH")
+                        ? "Ξ"
+                        : instrument.symbol.includes("SOL")
+                          ? "◎"
+                          : "📈"}
                   </div>
                   <div>
                     <div className="text-sm font-medium text-white">
@@ -229,7 +228,7 @@ export function InstrumentsSidebar({
                       : "bg-transparent text-white"
                   }`}
                 >
-                  {instrument.price}
+                  {instrument.bid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
                 </div>
               </div>
 
@@ -242,7 +241,7 @@ export function InstrumentsSidebar({
                       : "bg-transparent text-white"
                   }`}
                 >
-                  {instrument.price}
+                  {instrument.ask.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
                 </div>
               </div>
 
@@ -266,7 +265,7 @@ export function InstrumentsSidebar({
                     : "text-red-400"
                 }`}
               >
-                {instrument.change} ({instrument.changePercent})
+                {instrument.change > 0 ? "+" : ""}{instrument.change.toFixed(2)} ({instrument.changePercent > 0 ? "+" : ""}{instrument.changePercent.toFixed(2)}%)
               </span>
             </div>
           </div>

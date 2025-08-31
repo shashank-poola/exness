@@ -13,7 +13,8 @@ import {
   TrendingUp,
   Type,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useWebSocket } from "@/contexts/websocket-context";
 
 interface ChartAreaProps {
   symbol: string;
@@ -46,23 +47,49 @@ export function ChartArea({
 }: ChartAreaProps) {
   const [activeTool, setActiveTool] = useState("cursor");
   const [showIndicators, setShowIndicators] = useState(false);
+  const { candles, liveTrades } = useWebSocket();
+  const [currentOHLC, setCurrentOHLC] = useState({
+    open: 0,
+    high: 0,
+    low: 0,
+    close: 0,
+    change: 0,
+    changePercent: 0
+  });
 
-  // Mock price data
-  const mockPrice =
-    symbol === "BTCUSDT"
-      ? "110,889.42"
-      : symbol === "XAUUSD"
-        ? "3,384.518"
-        : "1.15916";
-  const mockChange =
-    symbol === "BTCUSDT"
-      ? "+144.46"
-      : symbol === "XAUUSD"
-        ? "-0.104"
-        : "+0.0012";
-  const mockChangePercent =
-    symbol === "BTCUSDT" ? "+0.13%" : symbol === "XAUUSD" ? "-0.00%" : "+0.10%";
-  const isPositive = !mockChange.startsWith("-");
+  // Get current OHLC data for the selected symbol and timeframe
+  useEffect(() => {
+    const currentCandle = candles.find(
+      c => c.symbol === symbol && c.timeframe === timeframe
+    );
+    
+    if (currentCandle) {
+      const change = currentCandle.close - currentCandle.open;
+      const changePercent = (change / currentCandle.open) * 100;
+      
+      setCurrentOHLC({
+        open: currentCandle.open,
+        high: currentCandle.high,
+        low: currentCandle.low,
+        close: currentCandle.close,
+        change,
+        changePercent
+      });
+    }
+  }, [candles, symbol, timeframe]);
+
+  // Get latest price for buy/sell buttons
+  const latestTrade = liveTrades
+    .filter(trade => trade.symbol === symbol)
+    .sort((a, b) => b.timestamp - a.timestamp)[0];
+
+  const currentPrice = latestTrade?.price || currentOHLC.close || 0;
+  const isPositive = currentOHLC.change >= 0;
+
+  // Calculate bid/ask prices with spread
+  const spread = symbol === "BTCUSDT" ? 21.60 : symbol === "ETHUSDT" ? 2.14 : 0.22;
+  const bidPrice = currentPrice - (spread / 2);
+  const askPrice = currentPrice + (spread / 2);
 
   return (
     <div className="flex-1 flex flex-col bg-[#0b0e11]">
@@ -76,10 +103,10 @@ export function ChartArea({
               <h2 className="text-lg font-semibold text-white">
                 {symbol === "BTCUSDT"
                   ? "Bitcoin vs US Dollar"
-                  : symbol === "XAUUSD"
-                    ? "Gold vs US Dollar"
-                    : symbol === "EURUSD"
-                      ? "Euro vs US Dollar"
+                  : symbol === "ETHUSDT"
+                    ? "Ethereum vs US Dollar"
+                    : symbol === "SOLUSDT"
+                      ? "Solana vs US Dollar"
                       : symbol}{" "}
                 • {timeframe}
               </h2>
@@ -89,17 +116,17 @@ export function ChartArea({
           {/* Price Info */}
           <div className="flex items-center gap-4 text-sm">
             <span className="text-gray-400">O</span>
-            <span className="text-white font-mono">{mockPrice}</span>
+            <span className="text-white font-mono">{currentOHLC.open.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}</span>
             <span className="text-gray-400">H</span>
-            <span className="text-white font-mono">{mockPrice}</span>
+            <span className="text-white font-mono">{currentOHLC.high.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}</span>
             <span className="text-gray-400">L</span>
-            <span className="text-white font-mono">{mockPrice}</span>
+            <span className="text-white font-mono">{currentOHLC.low.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}</span>
             <span className="text-gray-400">C</span>
-            <span className="text-white font-mono">{mockPrice}</span>
+            <span className="text-white font-mono">{currentOHLC.close.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}</span>
             <span
               className={`font-medium ${isPositive ? "text-green-400" : "text-red-400"}`}
             >
-              {mockChange} ({mockChangePercent})
+              {isPositive ? "+" : ""}{currentOHLC.change.toFixed(2)} ({isPositive ? "+" : ""}{currentOHLC.changePercent.toFixed(2)}%)
             </span>
           </div>
         </div>
@@ -180,13 +207,26 @@ export function ChartArea({
       <div className="flex-1 relative">
         <Candles symbol={symbol} timeframe={timeframe as any} />
 
+        {/* Buy/Sell Buttons Overlay */}
+        <div className="absolute top-4 right-4 flex flex-col gap-2">
+          <button className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded font-medium transition-colors shadow-lg">
+            Sell {bidPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+          </button>
+          <button className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded font-medium transition-colors shadow-lg">
+            Buy {askPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+          </button>
+          <div className="text-center text-xs text-gray-400 bg-[#1f2a35] rounded px-2 py-1">
+            Spread: {spread.toFixed(2)}
+          </div>
+        </div>
+
         {/* Chart Overlay - Price Line */}
-        <div className="absolute top-4 right-4 bg-[#1f2a35] rounded px-3 py-2 text-sm">
+        <div className="absolute top-4 left-4 bg-[#1f2a35] rounded px-3 py-2 text-sm">
           <div className="text-gray-400">Current Price</div>
           <div
             className={`font-mono text-lg font-semibold ${isPositive ? "text-green-400" : "text-red-400"}`}
           >
-            {mockPrice}
+            {currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
           </div>
         </div>
       </div>

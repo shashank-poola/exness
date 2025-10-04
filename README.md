@@ -1,4 +1,8 @@
-## TRADEX
+## TRADEX - trade with demo account
+
+-- BTC
+-- ETH
+-- SOL
 
 - this is the clone of exness trading platform application
 - which has buy and sell functionality

@@ -1,4 +1,4 @@
-## Exness trading 
+## TRADEX
 
 - this is the clone of exness trading platform application
 - which has buy and sell functionality

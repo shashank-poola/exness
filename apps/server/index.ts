@@ -3,6 +3,7 @@ import cors from "cors";
 import { createServer } from "http";
 import { createClient } from "redis";
 import { Server } from "socket.io";
+import { Socket } from 'socket.io'; // Import Socket type
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth";
 import candleRoutes from "./routes/candles";
@@ -13,6 +14,11 @@ dotenv.config();
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"]
+  }
+});
   cors: {
     origin: "http://localhost:3000",
     methods: ["GET", "POST"],
@@ -27,6 +33,7 @@ app.use("/api/candles", candleRoutes);
 app.use("/api/auth", authRoutes);
 
 // Health check endpoint
+
 app.get("/health", (req, res) => {
   res.json({ 
     status: "healthy", 
@@ -62,7 +69,8 @@ async function setupRedis() {
   }
 }
 
-io.on("connection", (socket) => {
+io.on("connection", (socket: Socket) => {
+
   console.log("Client Connected:", socket.id);
   socket.on("subscribe-candles", async ({ symbol, timeframe }) => {
     const room = `candles-${symbol}-${timeframe}`;
@@ -86,6 +94,6 @@ app.get("/", (req: express.Request, res: express.Response) => {
 });
 
 server.listen(3001, () => {
-  console.log("Server with WebSocket is running on port 3001");
+  console.log("Server with Socket.IO is running on port 3001");
   setupRedis();
 });

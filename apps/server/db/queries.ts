@@ -34,7 +34,11 @@ export async function getDBCandles(
              LIMIT $2`,
       [symbol, limit]
     );
+<<<<<<< HEAD
     return result.rows.map((row: any) => ({
+=======
+    return result.rows.map((row) => ({
+>>>>>>> 135147198af6e7baa8494b0d13c4e8e1b7b8a684
       time: row.time,
       symbol: row.symbol,
       open: parseFloat(row.open),

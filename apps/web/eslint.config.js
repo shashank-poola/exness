@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -24,3 +25,13 @@ export default tseslint.config(
     },
   },
 );
+=======
+/** @type {import("eslint").Linter.Config} */
+const config = {
+  extends: ["next/core-web-vitals"],
+  rules: {
+    // Add any custom rules here
+  }
+}
+export default config
+>>>>>>> 135147198af6e7baa8494b0d13c4e8e1b7b8a684

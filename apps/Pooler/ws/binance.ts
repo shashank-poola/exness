@@ -43,7 +43,11 @@ async function connect() {
     }
   };
 
+<<<<<<< HEAD
   ws.onerror = (error: any) => {
+=======
+  ws.onerror = (error) => {
+>>>>>>> 135147198af6e7baa8494b0d13c4e8e1b7b8a684
     console.error("WebSocket error:", error);
   };
 

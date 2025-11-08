@@ -5,7 +5,7 @@ const URL =
   "wss://stream.binance.com:9443/stream?streams=btcusdt@trade/ethusdt@trade/solusdt@trade";
 
 const publisher = createClient({
-  url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`,
+  url: `redis://${process.env.REDIS_HOST || "localhost"}:${process.env.REDIS_PORT || "6379"}`,
 });
 
 async function connect() {
@@ -43,16 +43,12 @@ async function connect() {
     }
   };
 
-<<<<<<< HEAD
   ws.onerror = (error: any) => {
-=======
-  ws.onerror = (error) => {
->>>>>>> 135147198af6e7baa8494b0d13c4e8e1b7b8a684
-    console.error("WebSocket error:", error);
+    ws.onerror = (error) => console.error("WebSocket error:", error);
   };
 
   ws.onclose = () => {
-    console.log("Disconnected.Reconnecting in 3s...");
+    console.log("Disconnected, Reconnecting in 3s...");
     setTimeout(connect, 3000);
   };
 }

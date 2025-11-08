@@ -10,17 +10,16 @@ export async function getDBCandles(
   try {
     let tableName: string;
     switch (timeframe) {
-      case "30s":
-        tableName = "candles_30s";
-        break;
       case "1m":
         tableName = "candles_1m";
         break;
       case "5m":
         tableName = "candles_5m";
         break;
-      case "1h":
+      case "30m":
         tableName = "candles_1h";
+      case "1h":
+        tableName = "candles_1h"
         break;
       default:
         throw new Error(`Invalid timeframe: ${timeframe}`);
@@ -34,11 +33,7 @@ export async function getDBCandles(
              LIMIT $2`,
       [symbol, limit]
     );
-<<<<<<< HEAD
-    return result.rows.map((row: any) => ({
-=======
     return result.rows.map((row) => ({
->>>>>>> 135147198af6e7baa8494b0d13c4e8e1b7b8a684
       time: row.time,
       symbol: row.symbol,
       open: parseFloat(row.open),

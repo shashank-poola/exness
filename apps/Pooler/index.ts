@@ -1,6 +1,6 @@
 import { createClient } from "redis";
 import { client, connectDB, query } from "./db/connection";
-import "./ws-server"; // Start WebSocket server
+import "./ws-server"; 
 
 const subscriber = createClient({
   url: "redis://localhost:6379",
@@ -71,8 +71,8 @@ function processTrade(trade: any) {
 }
 
 async function broadcastCurrentCandles(symbol: string) {
-  const timeframes = ["30s", "1m", "5m", "1h"];
-  const intervals = [30, 60, 300, 3600];
+  const timeframes = ["1m", "5m", "1h"];
+  const intervals = [60, 300, 3600, ];
 
   timeframes.forEach(async (timeframe, index) => {
     const interval = intervals[index];

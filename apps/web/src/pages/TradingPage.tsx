@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import tradexLogo from "@/assets/tradex-logo.png";
+import TradingChart from "./TradingChart";
+import { useTradingStore } from "@/store/useTradingStore";
 
 const TradingPage = () => {
   const [activeTab, setActiveTab] = useState("positions");
@@ -12,6 +14,34 @@ const TradingPage = () => {
   const [selectedTimeframe, setSelectedTimeframe] = useState("1m");
   const [leverage, setLeverage] = useState(1);
   const [volume, setVolume] = useState("1.00");
+  const { setSymbol, setTimeframe } = useTradingStore();
+
+  // Sync TradingPage state with store
+  useEffect(() => {
+    // Convert BTC -> BTCUSDT, ETH -> ETHUSDT, etc.
+    const symbolMap: Record<string, string> = {
+      BTC: "BTCUSDT",
+      ETH: "ETHUSDT",
+      SOL: "SOLUSDT",
+    };
+    const fullSymbol = symbolMap[selectedCrypto] || `${selectedCrypto}USDT`;
+    setSymbol(fullSymbol);
+  }, [selectedCrypto, setSymbol]);
+
+  useEffect(() => {
+    // Map timeframe from TradingPage format to store format
+    const timeframeMap: Record<string, "1m" | "5m" | "15m" | "1h" | "4h" | "1d"> = {
+      "1m": "1m",
+      "5m": "5m",
+      "30m": "15m", // Map 30m to closest available
+      "1h": "1h",
+      "6h": "4h", // Map 6h to closest available
+      "1d": "1d",
+      "3d": "1d", // Map 3d to 1d
+    };
+    const mappedTimeframe = timeframeMap[selectedTimeframe] || "1m";
+    setTimeframe(mappedTimeframe);
+  }, [selectedTimeframe, setTimeframe]);
 
   const cryptoPrices = [
     { 
@@ -104,13 +134,9 @@ const TradingPage = () => {
             <span className="text-sm font-extrabold">TRADING {selectedCrypto}/USD</span>
           </div>
 
-          {/* Chart Placeholder */}
-          <Card className="flex-1 p-6 bg-white border border-gray-200">
-            <div className="h-full flex items-center justify-center text-gray-400 text-sm">
-              Chart visualization would go here
-              <br />
-              (Multiple colored lines tracking model performance over time)
-            </div>
+          {/* Chart */}
+          <Card className="flex-1 p-0 bg-white border border-gray-200 overflow-hidden">
+            <TradingChart hideControls={true} height={undefined} />
           </Card>
 
           {/* Orders Section */}

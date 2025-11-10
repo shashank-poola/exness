@@ -232,3 +232,4 @@ function generateMockTrades() {
 startConsumer();
 // Start generating mock trades for testing
 generateMockTrades();
+

@@ -1,5 +1,5 @@
 import { createClient } from "redis";
-import { client, connectDB, query } from "./db/connection";
+import { client, connectDB, query } from "../../packages/db/connection";
 import "./ws-server"; // Start WebSocket server
 
 const subscriber = createClient({
